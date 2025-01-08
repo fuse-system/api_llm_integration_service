@@ -9,6 +9,9 @@ import { MODEL } from 'src/types/enum';
 import { DeepseekService } from 'src/services/deepseek.service';
 import { QueryModelDto } from 'src/dtos/query-model-dto';
 
+import { ClaudeAiService } from 'src/services/claude.service';
+
+
 @Controller('api/v1')
 export class AppController {
   constructor(
