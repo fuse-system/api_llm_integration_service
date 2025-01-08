@@ -29,10 +29,14 @@ export class AppController {
       } else if(llm_type.llm_type === MODEL.OPENAI){
         return ResponseDto.ok( await this.openAiService.getChatGptResponse(body.message),
         );
+      } else if(llm_type.llm_type === MODEL.CLAUDE){
+        return ResponseDto.ok( await this.claudeAiService.generateContent(body.message),
+        );
       }
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
+    // await this.claudeAiService.generateContent(body.message)
   }
   @Get()
   // @ApiBearerAuth('access-token')
