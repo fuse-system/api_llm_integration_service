@@ -14,11 +14,12 @@ import { JwtStrategy } from './core/jwt-auth-guard/jwt.strategy';
 import { RabbitMqConfigModule } from './config/rabbitmq-config.module';
 import { GeminiAiService } from './services/gemini.service';
 import { OpenAiService } from './services/open-ai.service';
+import { DeepseekService } from './services/deepseek.service';
 
 @Module({
   imports: [HttpModule, RabbitMqConfigModule],
   controllers: [AppController],
-  providers: [AppService, AuthApiService, JwtStrategy, GeminiAiService, OpenAiService],
+  providers: [AppService, AuthApiService, JwtStrategy, GeminiAiService, OpenAiService, DeepseekService],
 })
 export class AppModule implements NestModule {
   // MiddlewareConsumer is used to configure the middleware vvv
