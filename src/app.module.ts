@@ -13,6 +13,7 @@ import { CheckHeaderMiddleware } from './core/platform-key-middleware/check-head
 import { JwtStrategy } from './core/jwt-auth-guard/jwt.strategy';
 import { RabbitMqConfigModule } from './config/rabbitmq-config.module';
 import { GeminiAiService } from './services/gemini.service';
+import { OpenAiService } from './services/open-ai.service';
 
 import { OpenAiService } from './services/open-ai.service';
 import { ClaudeAiService } from './services/claude.service';
@@ -20,14 +21,8 @@ import { ClaudeAiService } from './services/claude.service';
 @Module({
   imports: [HttpModule, RabbitMqConfigModule],
   controllers: [AppController],
-  providers: [
-    AppService,
-    AuthApiService,
-    JwtStrategy,
-    GeminiAiService,
-    OpenAiService,
-    ClaudeAiService,
-  ],
+
+  providers: [AppService, AuthApiService, JwtStrategy, GeminiAiService, OpenAiService,ClaudeAiService],
 })
 export class AppModule implements NestModule {
   // MiddlewareConsumer is used to configure the middleware vvv

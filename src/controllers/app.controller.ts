@@ -5,7 +5,9 @@ import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
 import { ResponseDto } from 'src/dtos/response.dto';
+
 import { ClaudeAiService } from 'src/services/claude.service';
+
 
 @Controller('api/v1')
 export class AppController {
@@ -13,7 +15,9 @@ export class AppController {
     private readonly appService: AppService,
     private readonly openAiService: OpenAiService,
     private readonly geminiService: GeminiAiService,
+
     private readonly claudeAiService: ClaudeAiService,
+
   ) {}
   @Post('/llm/:llm_type')
   async chat(@Body() body: any, @Param('llm_type') llm_type: string) {
@@ -30,6 +34,7 @@ export class AppController {
         return ResponseDto.ok(
           await this.claudeAiService.generateContent(body.message),
         );
+
       default:
         return ResponseDto.throwNotFound('Invalid LLM type');
     }
