@@ -14,34 +14,37 @@ This template follows best practices for creating microservices, such as effecti
 
 ## Installation
 
-
 To start a new microservice using the **Nest_Mongo_Template**, follow these steps:
 
 1. **Create a New Repository on GitHub:**
-  - Go to GitHub and click on the "New repository" button.
-  - In the "Repository template" section, select `microMotion-ecosystem/nest_mongo_template`.
-  - For the repository name, follow the ecosystem standards: `api-[repoName]-service`. Make sure to replace `[repoName]` with your service's name, adhering to lowercase letters, using dashes (`-`) instead of underscores (`_`), and avoiding spaces.
+
+- Go to GitHub and click on the "New repository" button.
+- In the "Repository template" section, select `microMotion-ecosystem/nest_mongo_template`.
+- For the repository name, follow the ecosystem standards: `api-[repoName]-service`. Make sure to replace `[repoName]` with your service's name, adhering to lowercase letters, using dashes (`-`) instead of underscores (`_`), and avoiding spaces.
 
 2. **Clone the Repository:**
-  - Once the repository is created, clone it to your local machine using:
-    ```bash
-    git clone https://github.com/yourusername/api-[repoName]-service.git
-    ```
-  - Replace `yourusername` with your GitHub username and `[repoName]` with the name of your service.
+
+- Once the repository is created, clone it to your local machine using:
+  ```bash
+  git clone https://github.com/yourusername/api-[repoName]-service.git
+  ```
+- Replace `yourusername` with your GitHub username and `[repoName]` with the name of your service.
 
 3. **Update the Application Name:**
-  - Navigate to the cloned repository's directory:
-    ```bash
-    cd api-[repoName]-service
-    ```
-  - Find all instances of `<APP_NAME>` in your project files and replace them with your service's name, following the naming conventions mentioned above.
+
+- Navigate to the cloned repository's directory:
+  ```bash
+  cd api-[repoName]-service
+  ```
+- Find all instances of `<APP_NAME>` in your project files and replace them with your service's name, following the naming conventions mentioned above.
 
 4. **Configure Environment Variables:**
-  - Copy or rename the `.env.temp` file to `.env`:
-    ```bash
-    cp .env.temp .env
-    ```
-  - Open the `.env` file and update the environment configuration settings according to your service's requirements.
+
+- Copy or rename the `.env.temp` file to `.env`:
+  ```bash
+  cp .env.temp .env
+  ```
+- Open the `.env` file and update the environment configuration settings according to your service's requirements.
 
 Following these steps will set up your new microservice project, ready for further development and customization.
 
@@ -53,7 +56,7 @@ npm install
 
 ## Configuration
 
-Copy or rename the `.env.temp` file to `.env`  in the root directory of your project. Replace the placeholders with your actual values.
+Copy or rename the `.env.temp` file to `.env` in the root directory of your project. Replace the placeholders with your actual values.
 
 ### Environment Variables
 
@@ -107,8 +110,6 @@ nest_mongo_template/
 
 This structure helps in maintaining a clean separation of concerns within the application, making it easier for developers to locate and manage specific parts of the codebase.
 
-
-
 ## Authentication
 
 Authentication is handled via JWT tokens. Users receive a token upon login, which must be included in the header of subsequent requests to authenticate.
@@ -133,7 +134,6 @@ Run the application's tests with:
 ```bash
 npm test
 ```
-
 
 ## Contributing
 

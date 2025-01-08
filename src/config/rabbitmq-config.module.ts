@@ -1,4 +1,4 @@
-import { Global, INestApplication, Module } from "@nestjs/common";
+import { Global, INestApplication, Module } from '@nestjs/common';
 import {
   ClientsModule,
   MicroserviceOptions,
