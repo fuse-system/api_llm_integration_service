@@ -14,8 +14,6 @@ import { JwtStrategy } from './core/jwt-auth-guard/jwt.strategy';
 import { RabbitMqConfigModule } from './config/rabbitmq-config.module';
 import { GeminiAiService } from './services/gemini.service';
 import { OpenAiService } from './services/open-ai.service';
-
-import { OpenAiService } from './services/open-ai.service';
 import { ClaudeAiService } from './services/claude.service';
 
 @Module({
