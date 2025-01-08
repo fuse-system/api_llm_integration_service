@@ -5,6 +5,9 @@ import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
 import { ResponseDto } from 'src/dtos/response.dto';
+import { MODEL } from 'src/types/enum';
+import { DeepseekService } from 'src/services/deepseek.service';
+import { QueryModelDto } from 'src/dtos/query-model-dto';
 
 import { ClaudeAiService } from 'src/services/claude.service';
 
@@ -15,29 +18,28 @@ export class AppController {
     private readonly appService: AppService,
     private readonly openAiService: OpenAiService,
     private readonly geminiService: GeminiAiService,
-
-    private readonly claudeAiService: ClaudeAiService,
-
+    private readonly deepseekService: DeepseekService,
   ) {}
-  @Post('/llm/:llm_type')
-  async chat(@Body() body: any, @Param('llm_type') llm_type: string) {
-    switch (llm_type) {
-      case 'open_ai':
-        return ResponseDto.ok(
-          await this.openAiService.getChatGptResponse(body.message),
+  @Post('/llms/:llm_type')
+  async chat(@Body() body: any, @Param() llm_type: QueryModelDto) {
+    try {
+      if(llm_type.llm_type === MODEL.DEEPSEEK){
+        return ResponseDto.ok( await this.deepseekService.askDeepseek(body.message),
         );
-      case 'gemini':
-        return ResponseDto.ok(
-          await this.geminiService.generateContent(body.message),
+      } else if(llm_type.llm_type === MODEL.GEMINI){
+        return ResponseDto.ok( await this.geminiService.generateContent(body.message),
         );
-      case 'claude':
-        return ResponseDto.ok(
-          await this.claudeAiService.generateContent(body.message),
+      } else if(llm_type.llm_type === MODEL.OPENAI){
+        return ResponseDto.ok( await this.openAiService.getChatGptResponse(body.message),
         );
-
-      default:
-        return ResponseDto.throwNotFound('Invalid LLM type');
+      } else if(llm_type.llm_type === MODEL.CLAUDE){
+        return ResponseDto.ok( await this.claudeAiService.generateContent(body.message),
+        );
+      }
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
     }
+    // await this.claudeAiService.generateContent(body.message)
   }
   @Get()
   // @ApiBearerAuth('access-token')
