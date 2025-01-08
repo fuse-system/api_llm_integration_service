@@ -19,6 +19,7 @@ export class AppController {
     private readonly openAiService: OpenAiService,
     private readonly geminiService: GeminiAiService,
     private readonly deepseekService: DeepseekService,
+    private readonly claudeAiService: ClaudeAiService,
   ) {}
   @Post('/llms/:llm_type')
   async chat(@Body() body: any, @Param() llm_type: QueryModelDto) {
