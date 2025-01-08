@@ -12,12 +12,15 @@ export class ClaudeAiService {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
 
-  async generateContent(prompt: string) {
+  async generateContent(message: string) {
+    if (!message) {
+      throw new NotFoundException('Message must be provided');
+    }
     try {
-      const message = await this.anthropic.messages.create({
+      const result = await this.anthropic.messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: message }],
       });
       //   const message = {
       //     id: 'msg_01XFDUDYJgAACzvnptvVoYEL',
@@ -37,9 +40,9 @@ export class ClaudeAiService {
       //       output_tokens: 6,
       //     },
       //   };
-      return message.content[0]['text'];
+      return result.content[0]['text'];
     } catch (error) {
-      console.log(error);
+      //console.log(error);
       throw new InternalServerErrorException(`Failed to generate content`);
     }
   }
