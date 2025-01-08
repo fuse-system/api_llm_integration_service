@@ -14,12 +14,12 @@ export class GeminiAiService {
     this.model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
   }
 
-  async generateContent(prompt: string): Promise<string> {
-    if (!prompt) {
-      throw new NotFoundException('Prompt must be provided');
+  async generateContent(message: string): Promise<string> {
+    if (!message) {
+      throw new NotFoundException('Message must be provided');
     }
     try {
-      const result = await this.model.generateContent(prompt);
+      const result = await this.model.generateContent(message);
       return result.response.text();
     } catch (err) {
       console.error('Error generating content:', err);
