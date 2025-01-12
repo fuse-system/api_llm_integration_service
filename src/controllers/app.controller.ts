@@ -21,7 +21,7 @@ export class AppController {
     private readonly deepseekService: DeepseekService,
     private readonly claudeAiService: ClaudeAiService,
   ) {}
-  @Post('/llms/:llm_type')
+  @Post('/llm/:llm_type')
   async chat(@Body() body: any, @Param() llm_type: QueryModelDto) {
     try {
       if(llm_type.llm_type === MODEL.DEEPSEEK){
