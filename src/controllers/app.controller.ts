@@ -10,6 +10,7 @@ import { DeepseekService } from 'src/services/deepseek.service';
 import { QueryModelDto } from 'src/dtos/query-model-dto';
 
 import { ClaudeAiService } from 'src/services/claude.service';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 
 
 @Controller('api/v1')
@@ -21,6 +22,24 @@ export class AppController {
     private readonly deepseekService: DeepseekService,
     private readonly claudeAiService: ClaudeAiService,
   ) {}
+
+  @MessagePattern('ask-llm')
+  async askLlm(data:any) {
+    let answer;
+    if (data.llmType == MODEL.OPENAI) {
+      answer = await this.openAiService.getChatGptResponse(data.message);
+    } else if (data.llmType == MODEL.GEMINI) {
+      answer = await this.geminiService.generateContent(data.message);
+    } else if(data.llmType == MODEL.DEEPSEEK){
+      answer = await this.deepseekService.askDeepseek(data.message);
+    } else if(data.llmType == MODEL.CLAUDE){
+      answer = await this.claudeAiService.generateContent(data.message);
+    } else {
+      answer = { success: false }
+    }
+    return {success: true, data: answer};
+  }
+
   @Post('/llm/:llm_type')
   async chat(@Body() body: any, @Param() llm_type: QueryModelDto) {
     try {
