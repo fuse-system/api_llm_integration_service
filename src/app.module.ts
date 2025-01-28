@@ -16,11 +16,22 @@ import { GeminiAiService } from './services/gemini.service';
 import { OpenAiService } from './services/open-ai.service';
 import { DeepseekService } from './services/deepseek.service';
 import { ClaudeAiService } from './services/claude.service';
+import { HandleLLMResponseService } from './services/handle-llm-response.servce';
+import { GateWay } from './services/gateway.events.service';
 
 @Module({
   imports: [HttpModule, RabbitMqConfigModule],
   controllers: [AppController],
-  providers: [AppService, AuthApiService, JwtStrategy, GeminiAiService, OpenAiService,ClaudeAiService, DeepseekService],
+  providers: [AppService,
+    AuthApiService,
+    JwtStrategy,
+    GeminiAiService,
+    OpenAiService,
+    ClaudeAiService,
+    DeepseekService,
+    HandleLLMResponseService,
+    GateWay,
+  ],
 })
 export class AppModule implements NestModule {
   // MiddlewareConsumer is used to configure the middleware vvv

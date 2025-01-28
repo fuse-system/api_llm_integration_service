@@ -11,7 +11,7 @@ import { QueryModelDto } from 'src/dtos/query-model-dto';
 
 import { ClaudeAiService } from 'src/services/claude.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-
+import {v4 as uuidv4 } from 'uuid'
 
 @Controller('api/v1')
 export class AppController {
@@ -24,16 +24,23 @@ export class AppController {
   ) {}
 
   @MessagePattern('ask-llm')
-  async askLlm(data:any) {
+  async askLlm(data:
+    { 
+      messages:Array<{role:"user" |"assistant", content:string}>,
+      llmType:string,
+      sessionId?:string
+    }
+  ) {
+    
     let answer;
     if (data.llmType == MODEL.OPENAI) {
-      answer = await this.openAiService.getChatGptResponse(data.message);
+      answer = await this.openAiService.getChatGptResponse(data.messages);
     } else if (data.llmType == MODEL.GEMINI) {
-      answer = await this.geminiService.generateContent(data.message);
+      answer = await this.geminiService.generateContent(data.sessionId, data.messages);
     } else if(data.llmType == MODEL.DEEPSEEK){
-      answer = await this.deepseekService.askDeepseek(data.message);
+      answer = await this.deepseekService.askDeepseek(data.messages);
     } else if(data.llmType == MODEL.CLAUDE){
-      answer = await this.claudeAiService.generateContent(data.message);
+      answer = await this.claudeAiService.generateContent(data.messages);
     } else {
       answer = { success: false }
     }
@@ -41,40 +48,27 @@ export class AppController {
   }
 
   @Post('/llm/:llm_type')
-  async chat(@Body() body: any, @Param() llm_type: QueryModelDto) {
+  async chat(
+    @Body() body: {message: string}, @Param() llm_type: QueryModelDto) {
     try {
+      const llmMessage: Array<{role: "user" | "assistant", content: string}> = [{role: 'user', content: body.message}]
+      const sessionId = uuidv4()
+      console.log(sessionId)
       if(llm_type.llm_type === MODEL.DEEPSEEK){
-        return ResponseDto.ok( await this.deepseekService.askDeepseek(body.message),
+        return ResponseDto.ok( await this.deepseekService.askDeepseek(llmMessage),
         );
-      } else if(llm_type.llm_type === MODEL.GEMINI){
-        return ResponseDto.ok( await this.geminiService.generateContent(body.message),
-        );
+      // } else if(llm_type.llm_type === MODEL.GEMINI){
+      //   return ResponseDto.ok( await this.geminiService.generateContent(sessionId, llmMessage),
+      //   );
       } else if(llm_type.llm_type === MODEL.OPENAI){
-        return ResponseDto.ok( await this.openAiService.getChatGptResponse(body.message),
+        return ResponseDto.ok( await this.openAiService.getChatGptResponse(llmMessage),
         );
       } else if(llm_type.llm_type === MODEL.CLAUDE){
-        return ResponseDto.ok( await this.claudeAiService.generateContent(body.message),
+        return ResponseDto.ok( await this.claudeAiService.generateContent(llmMessage),
         );
       }
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
-    // await this.claudeAiService.generateContent(body.message)
-  }
-  @Get()
-  // @ApiBearerAuth('access-token')
-  // @ApiOperation({summary: 'Check if the API is working'})
-  // @ApiResponse({status: 200, description: 'API is working correctly.'})
-  isWorking(): string {
-    return this.appService.isWorking();
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('api/v1/demo')
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Demo route' })
-  @ApiResponse({ status: 200, description: 'Returns a demo text.' })
-  demo(): string {
-    return 'demo';
   }
 }
