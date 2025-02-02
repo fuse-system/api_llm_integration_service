@@ -12,6 +12,7 @@ import { QueryModelDto } from 'src/dtos/query-model-dto';
 import { ClaudeAiService } from 'src/services/claude.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import {v4 as uuidv4 } from 'uuid'
+import { Stream } from 'node:stream';
 
 @Controller('api/v1')
 export class AppController {
@@ -28,21 +29,30 @@ export class AppController {
     { 
       messages:Array<{role:"user" |"assistant", content:string}>,
       llmType:string,
-      sessionId?:string
+      sessionId?:string,
+      stream?: boolean
     }
   ) {
     
     let answer;
-    if (data.llmType == MODEL.OPENAI) {
-      answer = await this.openAiService.getChatGptResponse(data.messages);
-    } else if (data.llmType == MODEL.GEMINI) {
-      answer = await this.geminiService.generateContent(data.sessionId, data.messages);
-    } else if(data.llmType == MODEL.DEEPSEEK){
-      answer = await this.deepseekService.askDeepseek(data.messages);
-    } else if(data.llmType == MODEL.CLAUDE){
-      answer = await this.claudeAiService.generateContent(data.messages);
-    } else {
-      answer = { success: false }
+    // console.log(data)
+    if(data.stream === true){
+      console.log('streaming answer')
+      answer = await this.deepseekService.askDeepseekStream(data.messages, data.sessionId);
+
+    } else{
+
+      if (data.llmType == MODEL.OPENAI) {
+        answer = await this.openAiService.getChatGptResponse(data.messages);
+      } else if (data.llmType == MODEL.GEMINI) {
+        answer = await this.geminiService.generateContent(data.sessionId, data.messages);
+      } else if(data.llmType == MODEL.DEEPSEEK){
+        answer = await this.deepseekService.askDeepseek(data.messages);
+      } else if(data.llmType == MODEL.CLAUDE){
+        answer = await this.claudeAiService.generateContent(data.messages);
+      } else {
+        answer = { success: false }
+      }
     }
     return {success: true, data: answer};
   }
