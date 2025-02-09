@@ -35,7 +35,7 @@ export class DeepseekService {
   ) {}
 
   async askDeepseek(
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    messages: Array<{ role: 'user' | 'assistant' | "system"; content: string }>,
   ): Promise<{ chatResponse: string; structuredResponse: LLMResponse[] } | string> {
     const apiUrl = process.env.DEEPSEEK_API_URL;
     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -55,10 +55,10 @@ export class DeepseekService {
       }
       return true;
     });
-
+    console.log('messages', messages)
     const requestPayload = {
       model: 'deepseek-chat',
-      messages: filteredMessages,
+      messages: messages,
       temperature: 0.7,
       stream: false,
     };
@@ -73,6 +73,7 @@ export class DeepseekService {
           },
         }),
       );
+      
       const endTime = performance.now();
       const processingTimeMs = Math.round(endTime - startTime);
       const chatResponse = completion.data.choices[0].message.content;

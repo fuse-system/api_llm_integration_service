@@ -16,7 +16,7 @@ export class ClaudeAiService {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
 
-  async generateContent(messages: Array<{role: "user" | "assistant", content: string}>):
+  async generateContent(messages: Array<{role: any , content: string}>):
    Promise<{ chatResponse: string, structuredResponse: LLMResponse[] } | string>{
     if (!messages) {
       throw new NotFoundException('Message must be provided');

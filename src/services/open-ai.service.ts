@@ -19,7 +19,7 @@ export class OpenAiService {
     });
     }
   
-    async getChatGptResponse(messages: Array<{role:"user" | "assistant", content: string}>): 
+    async getChatGptResponse(messages: Array<{role:"user" | "assistant" | "system", content: string}>): 
      Promise<{ chatResponse: string, structuredResponse: LLMResponse[] } | string> {
       
       if (!messages) {
