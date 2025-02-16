@@ -1,6 +1,6 @@
 import { Controller, Get, UseGuards, Post, Body, Param, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AppService } from '../services/app.service';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
@@ -15,6 +15,8 @@ import {v4 as uuidv4 } from 'uuid'
 import { Stream } from 'node:stream';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Multer } from 'multer'; // Import Multer types
+import { AskLLMDto } from 'src/dtos/ask-llm.dto';
+import { systemMessages } from 'src/types/system-messages';
 
 @Controller('api/v1')
 export class AppController {
@@ -31,43 +33,6 @@ export class AppController {
     let answer;
     console.log(data)
     const messages: Array<{role: "user" | "assistant" | "system", content: string}> = [];
-    let systemMessages = [
-      `You are an expert customer service analyst for a telecom company. Analyze the transcribed conversation and return:
-        (((importanat))) it should be a string  json format with nooooooooooo mark dwon no mark down the following fields:
-        1. A concise summary (3-5 sentences)
-        2. Customer emotion detection (choose from: confused, satisfied, frustrated, angry, neutral, happy)
-        3. A descriptive title (max 10 words)
-        4. Key topics mentioned (e.g., billing, network, complaint)
-        5. Sentiment score (0-10)
-        6. Language detected (ISO 639-1 code)
-
-        Respond ONLY with valid JSON using this structure:
-        {
-          "summary": string,
-          "userStatus": "(choose from: confused, satisfied, frustrated, angry, neutral, happy)",
-          "title": string,
-          "topics": string[],
-          "sentimentScore": number,
-          "language": string
-        }
-
-        Example:
-        {
-          "summary": "Customer reports intermittent network coverage...",
-          "userStatus": "frustrated",
-          "title": "Network Coverage Complaint",
-          "topics": ["network", "service quality"],
-          "sentimentScore": 2.8,
-          "language": "en"
-        }`, // customer service
-      "this is a text converted from speech, please analise it andrespond with its summary analisis, user emotions", // speech to text
-      "You are a helpful, unbiased assistant. Provide clear, concise responses. Admit when you don't know something. Maintain professional yet friendly tone. Format complex answers with headings and bullet points using markdown.",// general assestant
-      "you will act as  mongo database, user will send unstructuted data or speach , please handle it and respond with just a json object, with nothing else", // mongo database
-      'You are a senior software engineer. Explain technical concepts with code examples. Prefer Go/Python/TypeScript. Validate assumptions and suggest best practices', // software engineer
-      "You are a fluent bilingual assistant. Respond in the user's language (detect automatically). Support code switching. Clarify ambiguous terms across languages.", // multilanguage
-      "You are a professional data scientist. Explain complex concepts in layman's terms. Provide examples and visualizations to help the user understand.", // data scientist
-      "Assume this character: Expert in historical/domain roleplay. Stay in chosen persona. Use period-appropriate language when requested. Clarify when beyond scope." // history expert
-    ]
     messages.push({role: 'system', content: systemMessages[0]});
     messages.push({role: 'user', content: data.message});
     if (data.llmType == MODEL.OPENAI) {
@@ -123,8 +88,21 @@ export class AppController {
   }
 
   @Post('/llm/:llm_type')
+  @ApiOperation({summary: 'send message to llm and get the answer'})
+  @ApiParam({
+      name: 'llm_type',
+      description: 'type of llm you want to respond to the message',
+      type: QueryModelDto
+  })
+  @ApiBody({
+      type: AskLLMDto,
+  })
+  @ApiResponse({
+      status: 200,
+      description: 'successfully send prompt to llm and successfully get response'
+  })
   async chat(
-    @Body() body: {message: string},
+    @Body() body: AskLLMDto,
     @Param() llm_type: QueryModelDto,
   ) {
     try {
