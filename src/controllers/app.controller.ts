@@ -125,5 +125,4 @@ export class AppController {
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
-
 }
