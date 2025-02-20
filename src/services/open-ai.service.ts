@@ -109,59 +109,7 @@ export class OpenAiService {
 
       throw new Error(`Failed to transcribe audio: ${error.message}`);
     }
-
-    async transcribeAudio(audioBuffer: Buffer): Promise<string> {
-      console.log(
-        'OpenAI API Key:',
-        process.env.OpenAI_Api ? 'Exists' : 'Not Found',
-      );
-  
-      console.log('Sending request to OpenAI API...');
-      try {
-        if (!audioBuffer || audioBuffer.length === 0) {
-          throw new Error('Empty audio buffer');
-        }
-  
-        const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.mp3`);
-        console.log('Temp file path:', tempFilePath);
-  
-        require('fs').writeFileSync(tempFilePath, audioBuffer);
-  
-        console.log('Attempting to transcribe audio file111111:', tempFilePath);
-  
-        const fs = require('fs');
-        if (!fs.existsSync(tempFilePath)) {
-          throw new Error(`File not found: ${tempFilePath}`);
-        }
-        console.log('Attempting to transcribe audio file222:', tempFilePath);
-  
-        const transcription = await this.openai.audio.transcriptions.create({
-          file: createReadStream(tempFilePath),
-          model: 'whisper-1',
-        });
-        console.log('Transcription success:', transcription);
-        console.log('Attempting to transcribe audio file33333:', tempFilePath);
-  
-        require('fs').unlinkSync(tempFilePath);
-        return transcription.text;
-      } catch (error) {
-        console.error('OpenAI API Error:', error.response?.data || error);
-        console.error('Detailed transcription error:', {
-          message: error.message,
-          status: error.status,
-          stack: error.stack,
-        });
-  
-        if (error.message.includes('Connection error')) {
-          throw new Error(
-            'OpenAI API connection failed. Check your internet or API key.',
-          );
-        }
-  
-        throw new Error(`Failed to transcribe audio: ${error.message}`);
-      }
-    }
-  
+  }
     async analyzePronunciation(
       messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     ) {
