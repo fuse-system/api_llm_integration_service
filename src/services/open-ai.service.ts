@@ -8,52 +8,106 @@ import { createReadStream, unlinkSync, writeFileSync } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-
 @Injectable()
 export class OpenAiService {
-    private openai: OpenAI;
+  private openai: OpenAI;
 
-    constructor(
-      private readonly handleLLMResponseService: HandleLLMResponseService
-    ) {
-      this.openai = new OpenAI({
-        apiKey: process.env.OpenAI_Api,
+  constructor(
+    private readonly handleLLMResponseService: HandleLLMResponseService,
+  ) {
+    this.openai = new OpenAI({
+      apiKey: process.env.OpenAI_Api,
     });
-    }
-  
-    async getChatGptResponse(messages: Array<{role:"user" | "assistant" | "system", content: string}>): 
-     Promise<{ chatResponse: string, structuredResponse: LLMResponse[] } | string> {
-      
-      if (!messages) {
-        throw new NotFoundException('Message must be provided');
-      }
-      try {
-        const startTime = performance.now()
-        const chatCompletion = await this.openai.chat.completions.create({
-          messages: messages,
-          model: "gpt-4o-mini",
-        });
-        const endTime = performance.now();
-        const processingTimeMs = Math.round(endTime - startTime);
-        const chatResponse = chatCompletion.choices[0].message.content;
-        const total_token = chatCompletion.usage.total_tokens;
-        const llm = "gpt-4o";
+  }
 
-        const structuredResponse = this.handleLLMResponseService.handleResponse(
-          llm,
-          chatResponse,
-          processingTimeMs,
-          total_token
-        );
-        
-        return {
-          chatResponse,
-          structuredResponse
-        }
-      } catch (error) {
-        console.error('Error interacting with OpenAI:', error);
-        return 'Sorry, something went wrong.';
+  async getChatGptResponse(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+  ): Promise<
+    { chatResponse: string; structuredResponse: LLMResponse[] } | string
+  > {
+    if (!messages) {
+      throw new NotFoundException('Message must be provided');
+    }
+    try {
+      const startTime = performance.now();
+      const chatCompletion = await this.openai.chat.completions.create({
+        messages: messages,
+        model: 'gpt-4o-mini',
+      });
+      const endTime = performance.now();
+      const processingTimeMs = Math.round(endTime - startTime);
+      const chatResponse = chatCompletion.choices[0].message.content;
+      const total_token = chatCompletion.usage.total_tokens;
+      const llm = 'gpt-4o';
+
+      const structuredResponse = this.handleLLMResponseService.handleResponse(
+        llm,
+        chatResponse,
+        processingTimeMs,
+        total_token,
+      );
+
+      return {
+        chatResponse,
+        structuredResponse,
+      };
+    } catch (error) {
+      console.error('Error interacting with OpenAI:', error);
+      return 'Sorry, something went wrong.';
+    }
+  }
+
+  //audio
+
+  async transcribeAudio(audioBuffer: Buffer): Promise<string> {
+    console.log(
+      'OpenAI API Key:',
+      process.env.OpenAI_Api ? 'Exists' : 'Not Found',
+    );
+
+    console.log('Sending request to OpenAI API...');
+    try {
+      if (!audioBuffer || audioBuffer.length === 0) {
+        throw new Error('Empty audio buffer');
       }
+
+      const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.mp3`);
+      console.log('Temp file path:', tempFilePath);
+
+      require('fs').writeFileSync(tempFilePath, audioBuffer);
+
+      console.log('Attempting to transcribe audio file111111:', tempFilePath);
+
+      const fs = require('fs');
+      if (!fs.existsSync(tempFilePath)) {
+        throw new Error(`File not found: ${tempFilePath}`);
+      }
+      console.log('Attempting to transcribe audio file222:', tempFilePath);
+
+      const transcription = await this.openai.audio.transcriptions.create({
+        file: createReadStream(tempFilePath),
+        model: 'whisper-1',
+      });
+      console.log('Transcription success:', transcription);
+      console.log('Attempting to transcribe audio file33333:', tempFilePath);
+
+      require('fs').unlinkSync(tempFilePath);
+      return transcription.text;
+    } catch (error) {
+      console.error('OpenAI API Error:', error.response?.data || error);
+      console.error('Detailed transcription error:', {
+        message: error.message,
+        status: error.status,
+        stack: error.stack,
+      });
+
+      if (error.message.includes('Connection error')) {
+        throw new Error(
+          'OpenAI API connection failed. Check your internet or API key.',
+        );
+      }
+
+      throw new Error(`Failed to transcribe audio: ${error.message}`);
     }
 
     async transcribeAudio(audioBuffer: Buffer): Promise<string> {
