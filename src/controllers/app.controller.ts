@@ -9,7 +9,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { AppService } from '../services/app.service';
-import { ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
@@ -23,8 +23,12 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { v4 as uuidv4 } from 'uuid';
 import { Stream } from 'node:stream';
 import { FileInterceptor } from '@nestjs/platform-express';
+
 //import { Multer } from 'multer'; // Import Multer types
 import { Express } from 'express';
+import { Multer } from 'multer'; // Import Multer types
+import { AskLLMDto } from 'src/dtos/ask-llm.dto';
+import { systemMessages } from 'src/types/system-messages';
 
 @Controller('api/v1')
 export class AppController {
@@ -39,20 +43,11 @@ export class AppController {
   @MessagePattern('call-llm')
   async sendHabbit(data: { message: string; llmType: string }) {
     let answer;
-    const messages: Array<{
-      role: 'user' | 'assistant' | 'system';
-      content: string;
-    }> = [];
-    let systemMessages = [
-      "You are a helpful, unbiased assistant. Provide clear, concise responses. Admit when you don't know something. Maintain professional yet friendly tone. Format complex answers with headings and bullet points using markdown.", // general assestant
-      'you will act as  mongo database, user will send unstructuted data or speach , please handle it and respond with just a json object, with nothing else', // mongo database
-      'You are a senior software engineer. Explain technical concepts with code examples. Prefer Go/Python/TypeScript. Validate assumptions and suggest best practices', // software engineer
-      "You are a fluent bilingual assistant. Respond in the user's language (detect automatically). Support code switching. Clarify ambiguous terms across languages.", // multilanguage
-      "You are a professional data scientist. Explain complex concepts in layman's terms. Provide examples and visualizations to help the user understand.", // data scientist
-      'Assume this character: Expert in historical/domain roleplay. Stay in chosen persona. Use period-appropriate language when requested. Clarify when beyond scope.', // history expert
-    ];
-    messages.push({ role: 'system', content: systemMessages[0] });
-    messages.push({ role: 'user', content: data.message });
+
+    console.log(data)
+    const messages: Array<{role: "user" | "assistant" | "system", content: string}> = [];
+    messages.push({role: 'system', content: systemMessages[0]});
+    messages.push({role: 'user', content: data.message});
     if (data.llmType == MODEL.OPENAI) {
       answer = await this.openAiService.getChatGptResponse(messages);
     } else if (data.llmType == MODEL.GEMINI) {
@@ -64,7 +59,28 @@ export class AppController {
     } else {
       answer = { success: false };
     }
-    return { success: true, data: answer.chatResponse };
+    console.log(answer.chatResponse)
+    return {success: true, data: answer.chatResponse};
+  }
+  @MessagePattern('send-prompt')
+  async sendPrmpt(data: {message: string, llmType:string}) {
+    let answer;
+    console.log(data)
+    const messages: Array<{role: "user" | "assistant" | "system", content: string}> = [];
+    messages.push({role: 'user', content: data.message});
+    if (data.llmType == MODEL.OPENAI) {
+      answer = await this.openAiService.getChatGptResponse(messages);
+    } else if (data.llmType == MODEL.GEMINI) {
+      answer = await this.geminiService.generateContent('', messages);
+    } else if(data.llmType == MODEL.DEEPSEEK){
+      answer = await this.deepseekService.askDeepseek(messages);
+    } else if(data.llmType == MODEL.CLAUDE){
+      answer = await this.claudeAiService.generateContent(messages);
+    } else {
+      answer = { success: false }
+    }
+    console.log(answer.chatResponse)
+    return {success: true, data: answer.chatResponse};
   }
 
   // this MessagePattern is for chat app.
@@ -105,21 +121,30 @@ export class AppController {
   }
 
   @Post('/llm/:llm_type')
+  @ApiOperation({summary: 'send message to llm and get the answer'})
+  @ApiParam({
+      name: 'llm_type',
+      description: 'type of llm you want to respond to the message',
+      type: QueryModelDto
+  })
+  @ApiBody({
+      type: AskLLMDto,
+  })
+  @ApiResponse({
+      status: 200,
+      description: 'successfully send prompt to llm and successfully get response'
+  })
   async chat(
-    @Body() body: { message: string },
+    @Body() body: AskLLMDto,
     @Param() llm_type: QueryModelDto,
   ) {
     try {
       let answer;
-      let llmMessage: Array<{
-        role: 'user' | 'assistant' | 'system';
-        content: string;
-      }> = [];
-      const systemMessage =
-        'for any question from user respond with "HahahaHaha"';
-      llmMessage.push({ role: 'system', content: systemMessage });
-      llmMessage.push({ role: 'user', content: body.message });
-      if (llm_type.llm_type === MODEL.DEEPSEEK) {
+      let llmMessage: Array<{role: "user" | "assistant" | 'system', content: string}> = [] 
+      const systemMessage = 'for any question from user respond with "HahahaHaha"'
+      llmMessage.push({role: 'system', content: systemMessage});
+      llmMessage.push({role: 'user', content: body.message});
+      if(llm_type.llm_type === MODEL.DEEPSEEK){
         answer = await this.deepseekService.askDeepseek(llmMessage);
       } else if (llm_type.llm_type === MODEL.GEMINI) {
         answer = await this.geminiService.generateContent('', llmMessage);
@@ -130,6 +155,7 @@ export class AppController {
       }
       return ResponseDto.ok(answer.chatResponse);
     } catch (error) {
+      console.log(error) 
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
@@ -175,4 +201,5 @@ export class AppController {
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
+
 }
