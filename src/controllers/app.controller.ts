@@ -146,4 +146,47 @@ export class AppController {
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
+
+    //endpoint to audio file
+    @Post('/pronunciation-analysis/:llm_type')
+    @UseInterceptors(FileInterceptor('audio'))
+    async analyzePronunciation(
+      @UploadedFile() audioFile: Express.Multer.File,
+      @Body() body: { language: string },
+      @Param() llm_type: QueryModelDto,
+    ) {
+      try {
+        const systemMessage = `You are a pronunciation expert. Analyze the user's speech in ${body.language} and provide feedback on: 
+        - Phonetic accuracy
+        - Intonation patterns
+        - Common errors
+        - Suggestions for improvement
+        Format response using markdown with sections for each analysis category.`;
+  
+        let answer;
+        console.log('Uploaded file:', audioFile);
+  
+        const transcription = await this.openAiService.transcribeAudio(
+          audioFile.buffer,
+        );
+  
+        const messages: Array<{
+          role: 'user' | 'assistant' | 'system';
+          content: string;
+        }> = [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: transcription },
+        ];
+  
+        if (llm_type.llm_type === MODEL.OPENAI) {
+          answer = await this.openAiService.getChatGptResponse(messages);
+        } else if (llm_type.llm_type === MODEL.DEEPSEEK) {
+          answer = await this.deepseekService.askDeepseek(messages);
+        }
+  
+        return ResponseDto.ok(answer.chatResponse);
+      } catch (error) {
+        return ResponseDto.throwBadRequest(error.message, error);
+      }
+    }
 }
