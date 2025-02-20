@@ -49,6 +49,26 @@ export class AppController {
     console.log(answer.chatResponse)
     return {success: true, data: answer.chatResponse};
   }
+  @MessagePattern('send-prompt')
+  async sendPrmpt(data: {message: string, llmType:string}) {
+    let answer;
+    console.log(data)
+    const messages: Array<{role: "user" | "assistant" | "system", content: string}> = [];
+    messages.push({role: 'user', content: data.message});
+    if (data.llmType == MODEL.OPENAI) {
+      answer = await this.openAiService.getChatGptResponse(messages);
+    } else if (data.llmType == MODEL.GEMINI) {
+      answer = await this.geminiService.generateContent('', messages);
+    } else if(data.llmType == MODEL.DEEPSEEK){
+      answer = await this.deepseekService.askDeepseek(messages);
+    } else if(data.llmType == MODEL.CLAUDE){
+      answer = await this.claudeAiService.generateContent(messages);
+    } else {
+      answer = { success: false }
+    }
+    console.log(answer.chatResponse)
+    return {success: true, data: answer.chatResponse};
+  }
 
 
   // this MessagePattern is for chat app.
@@ -110,7 +130,7 @@ export class AppController {
       let llmMessage: Array<{role: "user" | "assistant" | 'system', content: string}> = [] 
       const systemMessage = 'for any question from user respond with "HahahaHaha"'
       llmMessage.push({role: 'system', content: systemMessage});
-      llmMessage.push({role: 'user', content: body.message})
+      llmMessage.push({role: 'user', content: body.message});
       if(llm_type.llm_type === MODEL.DEEPSEEK){
         answer = await this.deepseekService.askDeepseek(llmMessage);
       } else if(llm_type.llm_type === MODEL.GEMINI){
@@ -122,6 +142,7 @@ export class AppController {
       }
       return ResponseDto.ok(answer.chatResponse, );
     } catch (error) {
+      console.log(error) 
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
