@@ -22,11 +22,14 @@ export class ClaudeAiService {
       throw new NotFoundException('Message must be provided');
     }
     try {
+      const systemMessage = messages[0].role === 'system' ? messages[0].content : '';
+      const otherMessages = messages.filter((msg) => msg.role !== 'system');
       const startTime = performance.now()
       const result = await this.anthropic.messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
-        messages: messages,
+        system: systemMessage,
+        messages: otherMessages,
       });
       const endTime = performance.now();
       const processingTimeMs = Math.round(endTime - startTime);
@@ -45,7 +48,7 @@ export class ClaudeAiService {
       }
 
     } catch (error) {
-      //console.log(error);
+      console.log(error);
       throw new InternalServerErrorException(`Failed to generate content`);
     }
   }
