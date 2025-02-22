@@ -18,6 +18,7 @@ import { DeepseekService } from './services/deepseek.service';
 import { ClaudeAiService } from './services/claude.service';
 import { HandleLLMResponseService } from './services/handle-llm-response.servce';
 import { GateWay } from './services/gateway.events.service';
+import { PdfParseService } from './services/pdf-parse.service';
 
 @Module({
   imports: [HttpModule, RabbitMqConfigModule],
@@ -31,6 +32,7 @@ import { GateWay } from './services/gateway.events.service';
     DeepseekService,
     HandleLLMResponseService,
     GateWay,
+    PdfParseService
   ],
 })
 export class AppModule implements NestModule {

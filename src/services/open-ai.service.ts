@@ -1,12 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UUID } from 'crypto';
 import { OpenAI } from 'openai';
-import { v4 as uuiidv4 } from 'uuid';
 import { HandleLLMResponseService } from './handle-llm-response.servce';
 import { LLMResponse } from 'src/types/interface';
-import { createReadStream, unlinkSync, writeFileSync } from 'fs';
+import { createReadStream } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class OpenAiService {
@@ -128,4 +127,45 @@ export class OpenAiService {
   
       console.log('AI Response:', response);
     }
+  async convertImageToText(imageBuffer: Buffer): Promise<string> {
+      const base64Image = imageBuffer.toString('base64');
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extract all text from this image. Output just the raw text without any additional commentary." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                }
+              }
+            ]
+          }
+        ]
+      });
+      
+      const text = response.choices[0].message.content;
+      return text;
+
+  }
+  async convertTextToSpeech(text: string): Promise<string> {
+    const response = await this.openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy", 
+      input: text,
+    });
+    
+    const speechFileName = `speech_${Date.now()}.mp3`;
+    const speechFilePath = `./uploads/${speechFileName}`;
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    
+    fs.writeFileSync(speechFilePath, buffer);
+    
+    return "/"+speechFileName;
+  }
 }
