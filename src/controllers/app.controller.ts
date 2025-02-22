@@ -29,6 +29,7 @@ import { Express } from 'express';
 import { Multer } from 'multer'; // Import Multer types
 import { AskLLMDto } from 'src/dtos/ask-llm.dto';
 import { systemMessages } from 'src/types/system-messages';
+import { PdfParseService } from 'src/services/pdf-parse.service';
 
 @Controller('api/v1')
 export class AppController {
@@ -37,7 +38,52 @@ export class AppController {
     private readonly geminiService: GeminiAiService,
     private readonly deepseekService: DeepseekService,
     private readonly claudeAiService: ClaudeAiService,
+    private readonly pdfParseService: PdfParseService,
   ) {}
+  @Post('/text-to-speech')
+  async textToSpeech(@Body() body: { text: string }) {
+    try {
+      const speechFilePath = await this.openAiService.convertTextToSpeech(body.text);
+      return ResponseDto.ok(speechFilePath);
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
+  @Post('/pdf-to-speech')
+  @UseInterceptors(FileInterceptor('file'))
+  async pdfToSpeech(@UploadedFile() file: Express.Multer.File) {
+    try {
+      const text = await this.pdfParseService.parsePdf(file.buffer);
+      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
+      return ResponseDto.ok(speechFilePath);
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
+  @Post('/image-to-speech')
+  @UseInterceptors(FileInterceptor('file'))
+  async imageToSpeech(@UploadedFile() file: Express.Multer.File) {
+    try {
+      if (!file) {
+        throw new Error('No file uploaded');
+      }
+  
+      if (!file.mimetype.startsWith('image/')) {
+        throw new Error('Uploaded file must be an image');
+      }
+  
+      const text = await this.openAiService.convertImageToText(file.buffer);
+      
+      if (!text.trim()) {
+        throw new Error('No text was extracted from the image');
+      }
+  
+      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
+      return ResponseDto.ok({ speechFilePath, extractedText: text });
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
 
   // we can use like this for ai agents.
   @MessagePattern('call-llm')

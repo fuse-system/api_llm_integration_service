@@ -1,5 +1,5 @@
 {
-  "name": "<APP_NAME>",
+  "name": "api_llm_integration_service",
   "version": "0.0.1",
   "description": "",
   "author": "",
@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "pdf-parse": "^1.1.1",
     "@anthropic-ai/sdk": "^0.33.1",
     "@google/generative-ai": "^0.21.0",
     "@nestjs/axios": "^3.0.2",
