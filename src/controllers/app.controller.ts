@@ -1,32 +1,22 @@
 import {
   Controller,
-  Get,
-  UseGuards,
   Post,
   Body,
   Param,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
-import { AppService } from '../services/app.service';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
+import { ApiBody, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
 import { ResponseDto } from 'src/dtos/response.dto';
 import { MODEL } from 'src/types/enum';
 import { DeepseekService } from 'src/services/deepseek.service';
 import { QueryModelDto } from 'src/dtos/query-model-dto';
-
 import { ClaudeAiService } from 'src/services/claude.service';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { v4 as uuidv4 } from 'uuid';
-import { Stream } from 'node:stream';
+import { MessagePattern } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
-
-//import { Multer } from 'multer'; // Import Multer types
 import { Express } from 'express';
-import { Multer } from 'multer'; // Import Multer types
 import { AskLLMDto } from 'src/dtos/ask-llm.dto';
 import { systemMessages } from 'src/types/system-messages';
 import { PdfParseService } from 'src/services/pdf-parse.service';
@@ -44,7 +34,7 @@ export class AppController {
   async textToSpeech(@Body() body: { text: string }) {
     try {
       const speechFilePath = await this.openAiService.convertTextToSpeech(body.text);
-      return ResponseDto.ok(speechFilePath);
+      return ResponseDto.ok({text: body.text, audioUrl: speechFilePath},'audio file created successfully');
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
@@ -55,7 +45,7 @@ export class AppController {
     try {
       const text = await this.pdfParseService.parsePdf(file.buffer);
       const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok(speechFilePath);
+      return ResponseDto.ok({text, audioUrl: speechFilePath},'audio file created successfully');
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
@@ -79,13 +69,12 @@ export class AppController {
       }
   
       const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok({ speechFilePath, extractedText: text });
+      return ResponseDto.ok({ text ,audioUrl: speechFilePath },'audio file created successfully');
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
 
-  // we can use like this for ai agents.
   @MessagePattern('call-llm')
   async sendHabbit(data: { message: string; llmType: string }) {
     let answer;
