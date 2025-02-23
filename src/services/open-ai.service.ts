@@ -1,12 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UUID } from 'crypto';
 import { OpenAI } from 'openai';
-import { v4 as uuiidv4 } from 'uuid';
 import { HandleLLMResponseService } from './handle-llm-response.servce';
 import { LLMResponse } from 'src/types/interface';
-import { createReadStream, unlinkSync, writeFileSync } from 'fs';
+import { createReadStream } from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 
 @Injectable()
 export class OpenAiService {
@@ -21,7 +20,7 @@ export class OpenAiService {
   }
 
   async getChatGptResponse(
-    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: any }>,
   ): Promise<
     { chatResponse: string; structuredResponse: LLMResponse[] } | string
   > {
@@ -32,7 +31,7 @@ export class OpenAiService {
       const startTime = performance.now();
       const chatCompletion = await this.openai.chat.completions.create({
         messages: messages,
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
       });
       const endTime = performance.now();
       const processingTimeMs = Math.round(endTime - startTime);
@@ -109,59 +108,7 @@ export class OpenAiService {
 
       throw new Error(`Failed to transcribe audio: ${error.message}`);
     }
-
-    async transcribeAudio(audioBuffer: Buffer): Promise<string> {
-      console.log(
-        'OpenAI API Key:',
-        process.env.OpenAI_Api ? 'Exists' : 'Not Found',
-      );
-  
-      console.log('Sending request to OpenAI API...');
-      try {
-        if (!audioBuffer || audioBuffer.length === 0) {
-          throw new Error('Empty audio buffer');
-        }
-  
-        const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.mp3`);
-        console.log('Temp file path:', tempFilePath);
-  
-        require('fs').writeFileSync(tempFilePath, audioBuffer);
-  
-        console.log('Attempting to transcribe audio file111111:', tempFilePath);
-  
-        const fs = require('fs');
-        if (!fs.existsSync(tempFilePath)) {
-          throw new Error(`File not found: ${tempFilePath}`);
-        }
-        console.log('Attempting to transcribe audio file222:', tempFilePath);
-  
-        const transcription = await this.openai.audio.transcriptions.create({
-          file: createReadStream(tempFilePath),
-          model: 'whisper-1',
-        });
-        console.log('Transcription success:', transcription);
-        console.log('Attempting to transcribe audio file33333:', tempFilePath);
-  
-        require('fs').unlinkSync(tempFilePath);
-        return transcription.text;
-      } catch (error) {
-        console.error('OpenAI API Error:', error.response?.data || error);
-        console.error('Detailed transcription error:', {
-          message: error.message,
-          status: error.status,
-          stack: error.stack,
-        });
-  
-        if (error.message.includes('Connection error')) {
-          throw new Error(
-            'OpenAI API connection failed. Check your internet or API key.',
-          );
-        }
-  
-        throw new Error(`Failed to transcribe audio: ${error.message}`);
-      }
-    }
-  
+  }
     async analyzePronunciation(
       messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
     ) {
@@ -180,4 +127,45 @@ export class OpenAiService {
   
       console.log('AI Response:', response);
     }
+  async convertImageToText(imageBuffer: Buffer): Promise<string> {
+      const base64Image = imageBuffer.toString('base64');
+
+      const response = await this.openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extract all text from this image. Output just the raw text without any additional commentary." },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`,
+                }
+              }
+            ]
+          }
+        ]
+      });
+      
+      const text = response.choices[0].message.content;
+      return text;
+
+  }
+  async convertTextToSpeech(text: string): Promise<string> {
+    const response = await this.openai.audio.speech.create({
+      model: "tts-1",
+      voice: "alloy", 
+      input: text,
+    });
+    
+    const speechFileName = `speech_${Date.now()}.mp3`;
+    const speechFilePath = `./uploads/${speechFileName}`;
+    
+    const buffer = Buffer.from(await response.arrayBuffer());
+    
+    fs.writeFileSync(speechFilePath, buffer);
+    
+    return "/"+speechFileName;
+  }
 }

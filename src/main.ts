@@ -7,10 +7,14 @@ import { AppModule } from './app.module';
 import { SwaggerConfig } from './config/swagger';
 import { RabbitMqConfigModule } from './config/rabbitmq-config.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   SwaggerConfig.setup(app);
+  app.enableCors();
+  app.useStaticAssets('uploads');
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
