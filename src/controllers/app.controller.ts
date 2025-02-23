@@ -83,6 +83,7 @@ export class AppController {
     const messages: Array<{role: "user" | "assistant" | "system", content: string}> = [];
     messages.push({role: 'system', content: systemMessages[0]});
     messages.push({role: 'user', content: data.message});
+    console.log(messages)
     if (data.llmType == MODEL.OPENAI) {
       answer = await this.openAiService.getChatGptResponse(messages);
     } else if (data.llmType == MODEL.GEMINI) {
@@ -94,8 +95,20 @@ export class AppController {
     } else {
       answer = { success: false };
     }
-    console.log(answer.chatResponse)
+    console.log(answer.chatResponse);
     return {success: true, data: answer.chatResponse};
+  }
+
+  @MessagePattern('transcribe-audio')
+  async audioToText(data: { buffer: string }) {
+    try{
+      const audioBuffer = Buffer.from(data.buffer, 'base64');
+      console.log('audioBuffer', audioBuffer);
+      const audioText = await this.openAiService.transcribeAudio(audioBuffer);
+      return {success: true, data: audioText};
+    } catch (error) {
+      return {success: false, data: error.message};
+    }
   }
   @MessagePattern('send-prompt')
   async sendPrmpt(data: {message: string, llmType:string}) {
@@ -123,13 +136,12 @@ export class AppController {
   // this MessagePattern is for chat app.
   @MessagePattern('ask-llm')
   async askLlm(data: {
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: any }>;
     llmType: string;
     sessionId?: string;
     stream?: boolean;
   }) {
     let answer;
-    // console.log(data)
     if (data.stream === true) {
       console.log('streaming answer');
       answer = await this.deepseekService.askDeepseekStream(
