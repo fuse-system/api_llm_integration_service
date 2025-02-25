@@ -353,4 +353,14 @@ Suggestions for Improvement:
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
+  @MessagePattern('fetch-llm')
+  async fetch(data: {
+    messages: Array<{ role: 'user' | 'assistant'; content: any }>;
+  }) {
+    console.log(data.messages);
+    // console.log(data.stream);
+    const result = await this.deepseekService.fetchDeepseekResponse(data.messages);
+    console.log(result);
+    return result;
+  }
 }

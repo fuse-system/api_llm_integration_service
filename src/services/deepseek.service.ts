@@ -1,10 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
 // import { HandleLLMResponseService } from './handle-llm-response.service';
 import { LLMResponse } from 'src/types/interface';
 import { GateWay } from './gateway.events.service';
 import { HandleLLMResponseService } from './handle-llm-response.servce';
+import { Readable } from 'node:stream';
 
 interface DeepSeekError {
   error?: {
@@ -261,5 +262,54 @@ export class DeepseekService {
     (this.gateWay.server as any).to(sessionId).emit('stream-error', { 
       msg: `Stream error: ${err.message}` 
     });
+  }
+  // fetchDeepseekResponse
+
+  async fetchDeepseekResponse(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+  ): Promise<
+    { chatResponse: string; structuredResponse: LLMResponse[] } | Readable
+  > {
+    const apiUrl = process.env.DEEPSEEK_API_URL;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+
+    const requestPayload = {
+      model: 'deepseek-chat',
+      messages,
+    };
+    try {
+      // Non-streaming logic
+      const startTime = performance.now();
+      const completion = await firstValueFrom(
+        this.httpService.post(apiUrl, requestPayload, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      const endTime = performance.now();
+      const processingTimeMs = Math.round(endTime - startTime);
+      const chatResponse = completion.data.choices[0].message.content;
+      const total_token = completion.data.usage.total_tokens;
+      const llm = 'deepseek-v3';
+
+      const structuredResponse = this.handleLLMResponseService.handleResponse(
+        llm,
+        chatResponse,
+        processingTimeMs,
+        total_token,
+      );
+
+      return {
+        chatResponse,
+        structuredResponse,
+      };
+    } catch (err) {
+      throw new BadRequestException(
+        `Failed to get response from DeepSeek API: ${err.message}`,
+      );
+    }
   }
 }
