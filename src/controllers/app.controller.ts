@@ -359,7 +359,7 @@ Suggestions for Improvement:
   }) {
     console.log(data.messages);
     // console.log(data.stream);
-    const result = await this.deepseekService.fetchDeepseekResponse(data.messages);
+    const result = await this.deepseekService.askDeepseek(data.messages);
     console.log(result);
     return result;
   }
