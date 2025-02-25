@@ -152,7 +152,7 @@ export class OpenAiService {
     
     const buffer = Buffer.from(await response.arrayBuffer());
     
-    fs.writeFileSync(speechFilePath, buffer);
+    fs.writeFile(speechFilePath, buffer);
     
     return "/"+speechFileName;
   }

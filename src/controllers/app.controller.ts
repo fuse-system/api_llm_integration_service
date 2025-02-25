@@ -90,7 +90,6 @@ export class AppController {
   @MessagePattern('call-llm')
   async sendHabbit(data: { message: string; llmType: string }) {
     let answer;
-
     const messages: Array<{
       role: 'user' | 'assistant' | 'system';
       content: string;
