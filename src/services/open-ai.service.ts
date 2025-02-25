@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+
 @Injectable()
 export class OpenAiService {
   private openai: OpenAI;
@@ -154,7 +155,7 @@ export class OpenAiService {
 
     const buffer = Buffer.from(await response.arrayBuffer());
 
-    // fs.writeFileSync(speechFilePath, buffer);
+    await fs.writeFile(speechFilePath, buffer);
 
     return '/' + speechFileName;
   }
