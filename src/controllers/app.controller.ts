@@ -1,7 +1,5 @@
 import {
   Controller,
-  Get,
-  UseGuards,
   Post,
   Body,
   Param,
@@ -17,23 +15,23 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
+
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
 import { ResponseDto } from 'src/dtos/response.dto';
 import { MODEL } from 'src/types/enum';
 import { DeepseekService } from 'src/services/deepseek.service';
 import { QueryModelDto } from 'src/dtos/query-model-dto';
-
 import { ClaudeAiService } from 'src/services/claude.service';
-import { MessagePattern, Payload } from '@nestjs/microservices';
-import { v4 as uuidv4 } from 'uuid';
-import { Stream } from 'node:stream';
+import { MessagePattern } from '@nestjs/microservices';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { Express } from 'express';
 import { Multer } from 'multer';
+
 import { AskLLMDto } from 'src/dtos/ask-llm.dto';
 import { systemMessages } from 'src/types/system-messages';
+import { PdfParseService } from 'src/services/pdf-parse.service';
 
 @Controller('api/v1')
 export class AppController {
@@ -42,20 +40,64 @@ export class AppController {
     private readonly geminiService: GeminiAiService,
     private readonly deepseekService: DeepseekService,
     private readonly claudeAiService: ClaudeAiService,
+    private readonly pdfParseService: PdfParseService,
   ) {}
+  @Post('/text-to-speech')
+  async textToSpeech(@Body() body: { text: string }) {
+    try {
+      const speechFilePath = await this.openAiService.convertTextToSpeech(body.text);
+      return ResponseDto.ok({text: body.text, audioUrl: speechFilePath},'audio file created successfully');
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
+  @Post('/pdf-to-speech')
+  @UseInterceptors(FileInterceptor('file'))
+  async pdfToSpeech(@UploadedFile() file: Express.Multer.File) {
+    try {
+      const text = await this.pdfParseService.parsePdf(file.buffer);
+      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
+      return ResponseDto.ok({text, audioUrl: speechFilePath},'audio file created successfully');
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
+  @Post('/image-to-speech')
+  @UseInterceptors(FileInterceptor('file'))
+  async imageToSpeech(@UploadedFile() file: Express.Multer.File) {
+    try {
+      if (!file) {
+        throw new Error('No file uploaded');
+      }
+  
+      if (!file.mimetype.startsWith('image/')) {
+        throw new Error('Uploaded file must be an image');
+      }
+  
+      const text = await this.openAiService.convertImageToText(file.buffer);
+      
+      if (!text.trim()) {
+        throw new Error('No text was extracted from the image');
+      }
+  
+      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
+      return ResponseDto.ok({ text ,audioUrl: speechFilePath },'audio file created successfully');
+    } catch (error) {
+      return ResponseDto.throwBadRequest(error.message, error);
+    }
+  }
 
-  // we can use like this for ai agents.
   @MessagePattern('call-llm')
   async sendHabbit(data: { message: string; llmType: string }) {
     let answer;
 
-    console.log(data);
     const messages: Array<{
       role: 'user' | 'assistant' | 'system';
       content: string;
     }> = [];
     messages.push({ role: 'system', content: systemMessages[0] });
     messages.push({ role: 'user', content: data.message });
+
     if (data.llmType == MODEL.OPENAI) {
       answer = await this.openAiService.getChatGptResponse(messages);
     } else if (data.llmType == MODEL.GEMINI) {
@@ -69,6 +111,19 @@ export class AppController {
     }
     console.log(answer.chatResponse);
     return { success: true, data: answer.chatResponse };
+
+  }
+
+  @MessagePattern('transcribe-audio')
+  async audioToText(data: { buffer: string }) {
+    try{
+      const audioBuffer = Buffer.from(data.buffer, 'base64');
+      console.log('audioBuffer', audioBuffer);
+      const audioText = await this.openAiService.transcribeAudio(audioBuffer);
+      return {success: true, data: audioText};
+    } catch (error) {
+      return {success: false, data: error.message};
+    }
   }
   @MessagePattern('send-prompt')
   async sendPrmpt(data: { message: string; llmType: string }) {
@@ -99,13 +154,12 @@ export class AppController {
   // this MessagePattern is for chat app.
   @MessagePattern('ask-llm')
   async askLlm(data: {
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+    messages: Array<{ role: 'user' | 'assistant'; content: any }>;
     llmType: string;
     sessionId?: string;
     stream?: boolean;
   }) {
     let answer;
-    // console.log(data)
     if (data.stream === true) {
       console.log('streaming answer');
       answer = await this.deepseekService.askDeepseekStream(

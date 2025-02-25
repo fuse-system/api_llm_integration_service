@@ -58,7 +58,7 @@ export class DeepseekService {
     console.log('messages', messages)
     const requestPayload = {
       model: 'deepseek-chat',
-      messages: messages,
+      messages: filteredMessages,
       temperature: 0.7,
       stream: false,
     };
@@ -124,10 +124,7 @@ export class DeepseekService {
       return;
     }
 
-    // if (filteredMessages[filteredMessages.length - 1].role !== 'user') {
-    //   this.handleValidationError(sessionId, 'Last message must be from user');
-    //   return;
-    // }
+
 
     if (!apiUrl || !apiKey) {
       this.handleValidationError(sessionId, 'Missing API configuration');
@@ -136,7 +133,7 @@ export class DeepseekService {
 
     const requestPayload = {
       model: 'deepseek-chat',
-      messages: filteredMessages,
+      messages: messages,
       temperature: 0.7,
       stream: true,
     };
