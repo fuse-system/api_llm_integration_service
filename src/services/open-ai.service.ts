@@ -20,7 +20,7 @@ export class OpenAiService {
   }
 
   async getChatGptResponse(
-    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: any }>,
   ): Promise<
     { chatResponse: string; structuredResponse: LLMResponse[] } | string
   > {
@@ -31,7 +31,7 @@ export class OpenAiService {
       const startTime = performance.now();
       const chatCompletion = await this.openai.chat.completions.create({
         messages: messages,
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
       });
       const endTime = performance.now();
       const processingTimeMs = Math.round(endTime - startTime);
