@@ -193,30 +193,25 @@ export class DeepseekService {
               }
             }
           }
-        });
 
-        stream.on('end', () => {
-          this.sendRemainingContent(sessionId);
-          const endTime = performance.now();
-          const processingTimeMs = Math.round(endTime - start);
-          const llm = 'deepseek-v3';
-          const total_token = 0;
-          structuredResponse = this.handleLLMResponseService.handleResponse(
-            llm,
-            fullChatResponse,
-            processingTimeMs,
-            total_token,
-          );
-          (this.gateWay.server as any)
-            .to(sessionId)
-            .emit('stream-end', { sessionId });
-          resolve({ chatResponse: fullChatResponse, structuredResponse });
-        });
+        }
+      });
 
-        stream.on('error', (err: Error) => {
-          this.handleStreamError(sessionId, err);
-          reject(err);
-        });
+      stream.on('end', () => {
+        this.sendRemainingContent(sessionId);
+        const endTime = performance.now();
+        const processingTimeMs = Math.round(endTime - start);
+        const llm = 'deepseek-v3';
+        const total_token = 0;
+        structuredResponse = this.handleLLMResponseService.handleResponse(llm, fullChatResponse, processingTimeMs, total_token);
+        // (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
+        this.gateWay.emitEvent('stream-end', {body: 'stream ended successfully', sessionId: sessionId});
+        resolve({ chatResponse: fullChatResponse, structuredResponse });
+      });
+
+      stream.on('error', (err: Error) => {
+        this.handleStreamError(sessionId, err);
+        reject(err);
       });
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message;
@@ -230,9 +225,9 @@ export class DeepseekService {
 
   private handleValidationError(sessionId: string, message: string) {
     console.error('Validation Error:', message);
-    (this.gateWay.server as any)
-      .to(sessionId)
-      .emit('stream-error', { msg: message });
+
+    // (this.gateWay.server as any).to(sessionId).emit('stream-error', { msg: message });
+    this.gateWay.emitEvent('stream-error', {body: message, sessionId: sessionId});
     throw new Error(`Validation Error: ${message}`);
   }
 
@@ -264,18 +259,20 @@ export class DeepseekService {
 
     while (this.wordBuffer.length >= chunkSize) {
       const chunk = this.wordBuffer.splice(0, chunkSize).join('');
-      (this.gateWay.server as any)
-        .to(sessionId)
-        .emit('stream-data', { data: chunk });
+
+      // (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      console.log(chunk)
+      this.gateWay.emitEvent('stream-data', {body: chunk, sessionId: sessionId});
+
     }
   }
 
   private sendRemainingContent(sessionId: string) {
     if (this.wordBuffer.length > 0) {
       const chunk = this.wordBuffer.join('');
-      (this.gateWay.server as any)
-        .to(sessionId)
-        .emit('stream-data', { data: chunk });
+
+      // (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      this.gateWay.emitEvent('stream-data', {body: chunk, sessionId: sessionId});
       this.wordBuffer = [];
     }
     this.buffer = '';
@@ -284,9 +281,11 @@ export class DeepseekService {
   private handleStreamError(sessionId: string, err: Error) {
     console.error('Stream error:', err);
     this.sendRemainingContent(sessionId);
-    (this.gateWay.server as any).to(sessionId).emit('stream-error', {
-      msg: `Stream error: ${err.message}`,
-    });
+
+    // (this.gateWay.server as any).to(sessionId).emit('stream-error', { 
+    //   msg: `Stream error: ${err.message}` 
+    // });
+    this.gateWay.emitEvent('stream-error', {body: `Stream error: ${err.message}`, sessionId: sessionId});
   }
   // fetchDeepseekResponse
 
