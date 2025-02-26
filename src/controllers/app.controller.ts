@@ -3,18 +3,13 @@ import {
   Post,
   Body,
   Param,
-  UseInterceptors,
-  UploadedFile,
 } from '@nestjs/common';
-import { AppService } from '../services/app.service';
 import {
-  ApiBearerAuth,
   ApiBody,
   ApiOperation,
   ApiParam,
   ApiResponse,
 } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../core/jwt-auth-guard/jwt-auth.guard';
 
 import { OpenAiService } from 'src/services/open-ai.service';
 import { GeminiAiService } from 'src/services/gemini.service';
@@ -24,10 +19,6 @@ import { DeepseekService } from 'src/services/deepseek.service';
 import { QueryModelDto } from 'src/dtos/query-model-dto';
 import { ClaudeAiService } from 'src/services/claude.service';
 import { MessagePattern } from '@nestjs/microservices';
-import { FileInterceptor } from '@nestjs/platform-express';
-
-import { Express } from 'express';
-import { Multer } from 'multer';
 
 import { AskLLMDto } from 'src/dtos/ask-llm.dto';
 import { systemMessages } from 'src/types/system-messages';
@@ -42,60 +33,18 @@ export class AppController {
     private readonly claudeAiService: ClaudeAiService,
     private readonly pdfParseService: PdfParseService,
   ) {}
-  @Post('/text-to-speech')
-  async textToSpeech(@Body() body: { text: string }) {
-    try {
-      const speechFilePath = await this.openAiService.convertTextToSpeech(
-        body.text,
-      );
-      return ResponseDto.ok(
-        { text: body.text, audioUrl: speechFilePath },
-        'audio file created successfully',
-      );
-    } catch (error) {
-      return ResponseDto.throwBadRequest(error.message, error);
-    }
+  @MessagePattern('text-to-speech')
+  async textToSpeech( body: { text: string ,voiceType:'alloy'|'ash'|'coral'|'echo'|'fable'|'nova'|'onyx'|'sage'|'shimmer' }):Promise<Buffer> {
+    const fileBuffer = await this.openAiService.convertTextToSpeech(
+      body.text,
+      body.voiceType
+    );
+    return fileBuffer
   }
-  @Post('/pdf-to-speech')
-  @UseInterceptors(FileInterceptor('file'))
-  async pdfToSpeech(@UploadedFile() file: Express.Multer.File) {
-    try {
-      const text = await this.pdfParseService.parsePdf(file.buffer);
-      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok(
-        { text, audioUrl: speechFilePath },
-        'audio file created successfully',
-      );
-    } catch (error) {
-      return ResponseDto.throwBadRequest(error.message, error);
-    }
-  }
-  @Post('/image-to-speech')
-  @UseInterceptors(FileInterceptor('file'))
-  async imageToSpeech(@UploadedFile() file: Express.Multer.File) {
-    try {
-      if (!file) {
-        throw new Error('No file uploaded');
-      }
-
-      if (!file.mimetype.startsWith('image/')) {
-        throw new Error('Uploaded file must be an image');
-      }
-
-      const text = await this.openAiService.convertImageToText(file.buffer);
-
-      if (!text.trim()) {
-        throw new Error('No text was extracted from the image');
-      }
-
-      const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok(
-        { text, audioUrl: speechFilePath },
-        'audio file created successfully',
-      );
-    } catch (error) {
-      return ResponseDto.throwBadRequest(error.message, error);
-    }
+  @MessagePattern('pdf-to-text')
+  async pdfToSpeech(body:{fileBuffer:Buffer}):Promise<string> {
+      const text = await this.pdfParseService.parsePdf(body.fileBuffer);
+      return text
   }
 
   @MessagePattern('call-llm')
@@ -158,10 +107,6 @@ export class AppController {
     console.log(answer.chatResponse);
     return { success: true, data: answer.chatResponse };
   }
-
-  // this MessagePattern is for chat app.
-  // this MessagePattern is for chat app.
-  // this MessagePattern is for chat app.
   @MessagePattern('ask-llm')
   async askLlm(data: {
     messages: Array<{ role: 'user' | 'system' | 'assistant'; content: any }>;
