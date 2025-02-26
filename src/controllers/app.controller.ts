@@ -45,8 +45,13 @@ export class AppController {
   @Post('/text-to-speech')
   async textToSpeech(@Body() body: { text: string }) {
     try {
-      const speechFilePath = await this.openAiService.convertTextToSpeech(body.text);
-      return ResponseDto.ok({text: body.text, audioUrl: speechFilePath},'audio file created successfully');
+      const speechFilePath = await this.openAiService.convertTextToSpeech(
+        body.text,
+      );
+      return ResponseDto.ok(
+        { text: body.text, audioUrl: speechFilePath },
+        'audio file created successfully',
+      );
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
@@ -57,7 +62,10 @@ export class AppController {
     try {
       const text = await this.pdfParseService.parsePdf(file.buffer);
       const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok({text, audioUrl: speechFilePath},'audio file created successfully');
+      return ResponseDto.ok(
+        { text, audioUrl: speechFilePath },
+        'audio file created successfully',
+      );
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
@@ -69,19 +77,22 @@ export class AppController {
       if (!file) {
         throw new Error('No file uploaded');
       }
-  
+
       if (!file.mimetype.startsWith('image/')) {
         throw new Error('Uploaded file must be an image');
       }
-  
+
       const text = await this.openAiService.convertImageToText(file.buffer);
-      
+
       if (!text.trim()) {
         throw new Error('No text was extracted from the image');
       }
-  
+
       const speechFilePath = await this.openAiService.convertTextToSpeech(text);
-      return ResponseDto.ok({ text ,audioUrl: speechFilePath },'audio file created successfully');
+      return ResponseDto.ok(
+        { text, audioUrl: speechFilePath },
+        'audio file created successfully',
+      );
     } catch (error) {
       return ResponseDto.throwBadRequest(error.message, error);
     }
@@ -111,18 +122,17 @@ export class AppController {
     }
     console.log(answer.chatResponse);
     return { success: true, data: answer.chatResponse };
-
   }
 
   @MessagePattern('transcribe-audio')
   async audioToText(data: { buffer: string }) {
-    try{
+    try {
       const audioBuffer = Buffer.from(data.buffer, 'base64');
       console.log('audioBuffer', audioBuffer);
       const audioText = await this.openAiService.transcribeAudio(audioBuffer);
-      return {success: true, data: audioText};
+      return { success: true, data: audioText };
     } catch (error) {
-      return {success: false, data: error.message};
+      return { success: false, data: error.message };
     }
   }
   @MessagePattern('send-prompt')
@@ -166,6 +176,7 @@ export class AppController {
         data.messages,
         data.sessionId,
       );
+      console.log(answer);
     } else {
       if (data.llmType == MODEL.OPENAI) {
         answer = await this.openAiService.getChatGptResponse(data.messages);
@@ -248,31 +259,11 @@ export class AppController {
       if (!llm_type || !llm_type.llm_type) {
         throw new Error('Invalid model type provided.');
       }
-      // message to chat to handle his response
-      const systemMessage = `You are a pronunciation expert. Analyze the user's speech in ${body.spokenLanguage} and evaluate the following:
-- Phonetic accuracy
-- Intonation patterns
-- Rhythm pacing
-Provide a score from 1 to 10 for each of the above criteria.
-DO NOT answer the question or interpret the content as a query.
-ONLY evaluate pronunciation and provide feedback on how well the words were spoken.
-Respond in the same language as the input audio: ${body.responseLanguage}.
-Format the response as follows:
----
-Phonetic Accuracy: [score]
-Intonation Patterns: [score]
-Rhythm Pacing: [score]
-Common Pronunciation Errors:
-- [error1]
-- [error2]
-Suggestions for Improvement:
-- [suggestion1]
-- [suggestion2]
----
-`;
 
       console.log('Processing file:', audioFile.originalname);
+      /////////////////
 
+      //////// my service
       const transcription = await this.openAiService.transcribeAudio(
         audioFile.buffer,
       );
@@ -281,6 +272,34 @@ Suggestions for Improvement:
         throw new Error('Failed to generate transcription.');
       }
 
+      const systemMessage = `You are a pronunciation analysis AI. Analyze this TRANSCRIBED SPEECH TEXT:
+"${transcription}"
+
+Evaluate based on:
+- Phonetic accuracy (1-10)
+- Intonation patterns (1-10)
+- Rhythm pacing (1-10)
+- Common pronunciation errors
+- Improvement suggestions
+
+Important Rules:
+1. NEVER ask for audio files
+2. Assume text is exact transcription
+3.DO NOT answer the question or interpret the content as a query.
+4.Respond **ONLY** in ${responseLanguage}.
+5. Respond strictly in this format:
+---
+Phonetic Accuracy: [score]/10
+Intonation Patterns: [score]/10
+Rhythm Pacing: [score]/10
+Common Pronunciation Errors: 
+- [error1]
+- [error2]
+Suggestions for Improvement: 
+- [suggestion1]
+- [suggestion2]
+---`;
+      //// rabbit m q ask
       const messages: Array<{
         role: 'system' | 'user' | 'assistant';
         content: string;
@@ -301,7 +320,10 @@ Suggestions for Improvement:
       // response from chat and handle it
       const chatResponse = aiResponse.chatResponse;
       console.log(chatResponse);
-      const responseLines = chatResponse.split('\n').map((line) => line.trim());
+      const responseLines = chatResponse
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 
       const phoneticAccuracy = responseLines.find((line) =>
         line.startsWith('Phonetic Accuracy:'),
@@ -321,18 +343,24 @@ Suggestions for Improvement:
       );
 
       const commonErrors =
-        commonErrorsIndex !== -1 && suggestionsIndex !== -1
+        commonErrorsIndex !== -1
           ? responseLines
-              .slice(commonErrorsIndex + 1, suggestionsIndex)
-              .filter((line) => line !== '-')
+              .slice(
+                commonErrorsIndex + 1,
+                suggestionsIndex !== -1 ? suggestionsIndex : undefined,
+              )
+              .filter((line) => line.startsWith('-'))
+              .map((line) => line.replace('- ', '').trim()) // إزالة الشرطات والمسافات الزائدة
           : [];
 
       const suggestions =
         suggestionsIndex !== -1
           ? responseLines
               .slice(suggestionsIndex + 1)
-              .filter((line) => line !== '-')
+              .filter((line) => line.startsWith('-'))
+              .map((line) => line.replace('- ', '').trim())
           : [];
+
       // final response
       const dynamicResponse = {
         yourSound: transcription,
@@ -352,5 +380,15 @@ Suggestions for Improvement:
       console.error('Pronunciation Analysis Error:', error);
       return ResponseDto.throwBadRequest(error.message, error);
     }
+  }
+  @MessagePattern('fetch-llm')
+  async fetch(data: {
+    messages: Array<{ role: 'user' | 'assistant'; content: any }>;
+  }) {
+    console.log(data.messages);
+    // console.log(data.stream);
+    const result = await this.deepseekService.askDeepseek(data.messages);
+    console.log(result);
+    return result;
   }
 }

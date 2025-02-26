@@ -1,10 +1,11 @@
 import { HttpService } from '@nestjs/axios';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { firstValueFrom } from 'rxjs';
 // import { HandleLLMResponseService } from './handle-llm-response.service';
 import { LLMResponse } from 'src/types/interface';
 import { GateWay } from './gateway.events.service';
 import { HandleLLMResponseService } from './handle-llm-response.servce';
+import { Readable } from 'node:stream';
 
 interface DeepSeekError {
   error?: {
@@ -196,7 +197,8 @@ export class DeepseekService {
         const llm = 'deepseek-v3';
         const total_token = 0;
         structuredResponse = this.handleLLMResponseService.handleResponse(llm, fullChatResponse, processingTimeMs, total_token);
-        (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
+        // (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
+        this.gateWay.emitEvent('stream-end', {body: 'stream ended successfully', sessionId: sessionId});
         resolve({ chatResponse: fullChatResponse, structuredResponse });
       });
 
@@ -214,7 +216,8 @@ export class DeepseekService {
 
   private handleValidationError(sessionId: string, message: string) {
     console.error('Validation Error:', message);
-    (this.gateWay.server as any).to(sessionId).emit('stream-error', { msg: message });
+    // (this.gateWay.server as any).to(sessionId).emit('stream-error', { msg: message });
+    this.gateWay.emitEvent('stream-error', {body: message, sessionId: sessionId});
     throw new Error(`Validation Error: ${message}`);
   }
 
@@ -242,14 +245,18 @@ export class DeepseekService {
 
     while (this.wordBuffer.length >= chunkSize) {
       const chunk = this.wordBuffer.splice(0, chunkSize).join('');
-      (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      // (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      console.log(chunk)
+      this.gateWay.emitEvent('stream-data', {body: chunk, sessionId: sessionId});
+
     }
 }
 
   private sendRemainingContent(sessionId: string) {
     if (this.wordBuffer.length > 0) {
       const chunk = this.wordBuffer.join('');
-      (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      // (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      this.gateWay.emitEvent('stream-data', {body: chunk, sessionId: sessionId});
       this.wordBuffer = [];
     }
     this.buffer = '';
@@ -258,8 +265,58 @@ export class DeepseekService {
   private handleStreamError(sessionId: string, err: Error) {
     console.error('Stream error:', err);
     this.sendRemainingContent(sessionId);
-    (this.gateWay.server as any).to(sessionId).emit('stream-error', { 
-      msg: `Stream error: ${err.message}` 
-    });
+    // (this.gateWay.server as any).to(sessionId).emit('stream-error', { 
+    //   msg: `Stream error: ${err.message}` 
+    // });
+    this.gateWay.emitEvent('stream-error', {body: `Stream error: ${err.message}`, sessionId: sessionId});
+  }
+  // fetchDeepseekResponse
+
+  async fetchDeepseekResponse(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+  ): Promise<
+    { chatResponse: string; structuredResponse: LLMResponse[] } | Readable
+  > {
+    const apiUrl = process.env.DEEPSEEK_API_URL;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+
+    const requestPayload = {
+      model: 'deepseek-chat',
+      messages,
+    };
+    try {
+      // Non-streaming logic
+      const startTime = performance.now();
+      const completion = await firstValueFrom(
+        this.httpService.post(apiUrl, requestPayload, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+        }),
+      );
+
+      const endTime = performance.now();
+      const processingTimeMs = Math.round(endTime - startTime);
+      const chatResponse = completion.data.choices[0].message.content;
+      const total_token = completion.data.usage.total_tokens;
+      const llm = 'deepseek-v3';
+
+      const structuredResponse = this.handleLLMResponseService.handleResponse(
+        llm,
+        chatResponse,
+        processingTimeMs,
+        total_token,
+      );
+
+      return {
+        chatResponse,
+        structuredResponse,
+      };
+    } catch (err) {
+      throw new BadRequestException(
+        `Failed to get response from DeepSeek API: ${err.message}`,
+      );
+    }
   }
 }

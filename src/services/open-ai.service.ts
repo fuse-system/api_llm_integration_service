@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+
 @Injectable()
 export class OpenAiService {
   private openai: OpenAI;
@@ -73,7 +74,7 @@ export class OpenAiService {
       if (!(await fs.stat(tempFilePath))) {
         throw new Error(`File not found after writing: ${tempFilePath}`);
       }
-
+      console.log('hello:', tempFilePath);
       console.log('Sending file to OpenAI Whisper...');
       //convert speech to text
       const transcription = await this.openai.audio.transcriptions.create({
@@ -97,63 +98,65 @@ export class OpenAiService {
     }
   }
 
-    async analyzePronunciation(
-      messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    ) {
-      const systemPrompt = `Analyze the pronunciation quality based on these criteria:
+  async analyzePronunciation(
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+  ) {
+    const systemPrompt = `Analyze the pronunciation quality based on these criteria:
         1. Phonetic accuracy (0-10)
         2. Intonation (0-10)
         3. Rhythm and pacing (0-10)
         4. Common errors detection
         5. Improvement suggestions
         Provide response in JSON format with detailed analysis.`;
-  
-      const response = await this.getChatGptResponse([
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ]);
-  
-      console.log('AI Response:', response);
-    }
+
+    const response = await this.getChatGptResponse([
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ]);
+
+    console.log('AI Response:', response);
+  }
   async convertImageToText(imageBuffer: Buffer): Promise<string> {
-      const base64Image = imageBuffer.toString('base64');
+    const base64Image = imageBuffer.toString('base64');
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extract all text from this image. Output just the raw text without any additional commentary." },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${base64Image}`,
-                }
-              }
-            ]
-          }
-        ]
-      });
-      
-      const text = response.choices[0].message.content;
-      return text;
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract all text from this image. Output just the raw text without any additional commentary.',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`,
+              },
+            },
+          ],
+        },
+      ],
+    });
 
+    const text = response.choices[0].message.content;
+    return text;
   }
   async convertTextToSpeech(text: string): Promise<string> {
     const response = await this.openai.audio.speech.create({
-      model: "tts-1",
-      voice: "alloy", 
+      model: 'tts-1',
+      voice: 'alloy',
       input: text,
     });
-    
+
     const speechFileName = `speech_${Date.now()}.mp3`;
     const speechFilePath = `./uploads/${speechFileName}`;
-    
+
     const buffer = Buffer.from(await response.arrayBuffer());
-    
-    fs.writeFileSync(speechFilePath, buffer);
-    
-    return "/"+speechFileName;
+
+    await fs.writeFile(speechFilePath, buffer);
+
+    return '/' + speechFileName;
   }
 }
