@@ -164,7 +164,7 @@ export class AppController {
   // this MessagePattern is for chat app.
   @MessagePattern('ask-llm')
   async askLlm(data: {
-    messages: Array<{ role: 'user' | 'assistant'; content: any }>;
+    messages: Array<{ role: 'user' | 'system' | 'assistant'; content: any }>;
     llmType: string;
     sessionId?: string;
     stream?: boolean;
@@ -236,150 +236,7 @@ export class AppController {
       return ResponseDto.throwBadRequest(error.message, error);
     }
   }
-  //endpoint to audio file
-  @Post('/pronunciation-analysis/:llm_type')
-  @UseInterceptors(FileInterceptor('audio'))
-  async analyzePronunciation(
-    @UploadedFile() audioFile: Express.Multer.File,
-    @Body() body: { spokenLanguage: string; responseLanguage: string },
-    @Param() llm_type: QueryModelDto,
-  ) {
-    try {
-      // check for upload audio
-      if (!audioFile || !audioFile.buffer) {
-        throw new Error('No audio file uploaded or invalid format.');
-      }
-      // spokenLanguage should be here
-      const spokenLanguage = body.spokenLanguage;
-      if (!body.spokenLanguage) {
-        throw new Error('Language parameter is required.');
-      }
-      const responseLanguage = body.responseLanguage || 'English';
-      if (!llm_type || !llm_type.llm_type) {
-        throw new Error('Invalid model type provided.');
-      }
 
-      console.log('Processing file:', audioFile.originalname);
-      /////////////////
-
-      //////// my service
-      const transcription = await this.openAiService.transcribeAudio(
-        audioFile.buffer,
-      );
-
-      if (!transcription || transcription.trim().length === 0) {
-        throw new Error('Failed to generate transcription.');
-      }
-
-      const systemMessage = `You are a pronunciation analysis AI. Analyze this TRANSCRIBED SPEECH TEXT:
-"${transcription}"
-
-Evaluate based on:
-- Phonetic accuracy (1-10)
-- Intonation patterns (1-10)
-- Rhythm pacing (1-10)
-- Common pronunciation errors
-- Improvement suggestions
-
-Important Rules:
-1. NEVER ask for audio files
-2. Assume text is exact transcription
-3.DO NOT answer the question or interpret the content as a query.
-4.Respond **ONLY** in ${responseLanguage}.
-5. Respond strictly in this format:
----
-Phonetic Accuracy: [score]/10
-Intonation Patterns: [score]/10
-Rhythm Pacing: [score]/10
-Common Pronunciation Errors: 
-- [error1]
-- [error2]
-Suggestions for Improvement: 
-- [suggestion1]
-- [suggestion2]
----`;
-      //// rabbit m q ask
-      const messages: Array<{
-        role: 'system' | 'user' | 'assistant';
-        content: string;
-      }> = [
-        { role: 'system', content: systemMessage },
-        {
-          role: 'user',
-          content: `The following is a transcription of an audio recording. Analyze the pronunciation quality without providing theoretical pronunciation guidelines: "${transcription}"`,
-        },
-      ];
-      console.log(transcription);
-      let aiResponse;
-      if (llm_type.llm_type === MODEL.OPENAI) {
-        aiResponse = await this.openAiService.getChatGptResponse(messages);
-      } else {
-        throw new Error('Unsupported model type.');
-      }
-      // response from chat and handle it
-      const chatResponse = aiResponse.chatResponse;
-      console.log(chatResponse);
-      const responseLines = chatResponse
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      const phoneticAccuracy = responseLines.find((line) =>
-        line.startsWith('Phonetic Accuracy:'),
-      );
-      const intonation = responseLines.find((line) =>
-        line.startsWith('Intonation Patterns:'),
-      );
-      const rhythmPacing = responseLines.find((line) =>
-        line.startsWith('Rhythm Pacing:'),
-      );
-
-      const commonErrorsIndex = responseLines.findIndex((line) =>
-        line.startsWith('Common Pronunciation Errors:'),
-      );
-      const suggestionsIndex = responseLines.findIndex((line) =>
-        line.startsWith('Suggestions for Improvement:'),
-      );
-
-      const commonErrors =
-        commonErrorsIndex !== -1
-          ? responseLines
-              .slice(
-                commonErrorsIndex + 1,
-                suggestionsIndex !== -1 ? suggestionsIndex : undefined,
-              )
-              .filter((line) => line.startsWith('-'))
-              .map((line) => line.replace('- ', '').trim()) // إزالة الشرطات والمسافات الزائدة
-          : [];
-
-      const suggestions =
-        suggestionsIndex !== -1
-          ? responseLines
-              .slice(suggestionsIndex + 1)
-              .filter((line) => line.startsWith('-'))
-              .map((line) => line.replace('- ', '').trim())
-          : [];
-
-      // final response
-      const dynamicResponse = {
-        yourSound: transcription,
-        phonetic_accuracy: phoneticAccuracy
-          ? phoneticAccuracy.split(': ')[1]
-          : 'no score',
-        intonation: intonation ? intonation.split(': ')[1] : 'no score',
-        rhythm_pacing: rhythmPacing ? rhythmPacing.split(': ')[1] : 'no score',
-        common_errors: commonErrors.length > 0 ? commonErrors : 'no errors',
-        suggestions: suggestions.length > 0 ? suggestions : 'no suggestions',
-        spokenLanguage: spokenLanguage,
-        responseLanguage: responseLanguage,
-      };
-
-      return ResponseDto.ok(dynamicResponse);
-    } catch (error) {
-      console.error('Pronunciation Analysis Error:', error);
-      return ResponseDto.throwBadRequest(error.message, error);
-    }
-  }
   @MessagePattern('fetch-llm')
   async fetch(data: {
     messages: Array<{ role: 'user' | 'assistant'; content: any }>;

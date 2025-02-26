@@ -36,13 +36,15 @@ export class DeepseekService {
   ) {}
 
   async askDeepseek(
-    messages: Array<{ role: 'user' | 'assistant' | "system"; content: string }>,
-  ): Promise<{ chatResponse: string; structuredResponse: LLMResponse[] } | string> {
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
+  ): Promise<
+    { chatResponse: string; structuredResponse: LLMResponse[] } | string
+  > {
     const apiUrl = process.env.DEEPSEEK_API_URL;
     const apiKey = process.env.DEEPSEEK_API_KEY;
 
     // Validate message structure first
-    const validatedMessages = messages.filter(msg => {
+    const validatedMessages = messages.filter((msg) => {
       // Check for required message structure
       if (!msg.role || !['user', 'assistant'].includes(msg.role)) return false;
       if (typeof msg.content !== 'string') return false;
@@ -56,7 +58,7 @@ export class DeepseekService {
       }
       return true;
     });
-    console.log('messages', messages)
+    console.log('messages', messages);
     const requestPayload = {
       model: 'deepseek-chat',
       messages: filteredMessages,
@@ -74,7 +76,7 @@ export class DeepseekService {
           },
         }),
       );
-      
+
       const endTime = performance.now();
       const processingTimeMs = Math.round(endTime - startTime);
       const chatResponse = completion.data.choices[0].message.content;
@@ -97,14 +99,16 @@ export class DeepseekService {
   }
 
   async askDeepseekStream(
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    messages: Array<{ role: 'user' | 'system' | 'assistant'; content: string }>,
     sessionId: string,
-  ): Promise<{ chatResponse: string; structuredResponse: LLMResponse[] } | string> {
+  ): Promise<
+    { chatResponse: string; structuredResponse: LLMResponse[] } | string
+  > {
     const apiUrl = process.env.DEEPSEEK_API_URL;
     const apiKey = process.env.DEEPSEEK_API_KEY;
 
     // Validate message structure first
-    const validatedMessages = messages.filter(msg => {
+    const validatedMessages = messages.filter((msg) => {
       // Check for required message structure
       if (!msg.role || !['user', 'assistant'].includes(msg.role)) return false;
       if (typeof msg.content !== 'string') return false;
@@ -124,8 +128,6 @@ export class DeepseekService {
       this.handleValidationError(sessionId, 'Conversation history is empty');
       return;
     }
-
-
 
     if (!apiUrl || !apiKey) {
       this.handleValidationError(sessionId, 'Missing API configuration');
@@ -156,66 +158,81 @@ export class DeepseekService {
 
       if (response.status !== 200) {
         const errorData = await this.getStreamError(response.data);
-        this.handleStreamError(sessionId, new Error(`API Error: ${response.status} - ${errorData}`));
+        this.handleStreamError(
+          sessionId,
+          new Error(`API Error: ${response.status} - ${errorData}`),
+        );
         return;
       }
 
       const stream = response.data;
 
       return new Promise((resolve, reject) => {
-      stream.on('data', (chunk: Buffer) => {
-        this.buffer += chunk.toString();
+        stream.on('data', (chunk: Buffer) => {
+          this.buffer += chunk.toString();
 
-        let eventEndIndex;
-        while ((eventEndIndex = this.buffer.indexOf('\n\n')) !== -1) {
-          const eventData = this.buffer.substring(0, eventEndIndex).trim();
-          this.buffer = this.buffer.substring(eventEndIndex + 2);
+          let eventEndIndex;
+          while ((eventEndIndex = this.buffer.indexOf('\n\n')) !== -1) {
+            const eventData = this.buffer.substring(0, eventEndIndex).trim();
+            this.buffer = this.buffer.substring(eventEndIndex + 2);
 
-          if (eventData.startsWith('data: ')) {
-            const jsonData = eventData.substring(6);
-            if (jsonData === '[DONE]') {
-              // (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
-              return;
-            }
+            if (eventData.startsWith('data: ')) {
+              const jsonData = eventData.substring(6);
+              if (jsonData === '[DONE]') {
+                // (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
+                return;
+              }
 
-            try {
-              const parsedData: DeepSeekStreamResponse = JSON.parse(jsonData);
-              const content = parsedData.choices[0]?.delta?.content || '';
-              fullChatResponse+= content;
-              this.processContent(content, sessionId, this.CHUNK_SIZE);
-            } catch (err) {
-              console.error('Error parsing JSON:', err);
+              try {
+                const parsedData: DeepSeekStreamResponse = JSON.parse(jsonData);
+                const content = parsedData.choices[0]?.delta?.content || '';
+                fullChatResponse += content;
+                this.processContent(content, sessionId, this.CHUNK_SIZE);
+              } catch (err) {
+                console.error('Error parsing JSON:', err);
+              }
             }
           }
-        }
-      });
+        });
 
-      stream.on('end', () => {
-        this.sendRemainingContent(sessionId);
-        const endTime = performance.now();
-        const processingTimeMs = Math.round(endTime - start);
-        const llm = 'deepseek-v3';
-        const total_token = 0;
-        structuredResponse = this.handleLLMResponseService.handleResponse(llm, fullChatResponse, processingTimeMs, total_token);
-        (this.gateWay.server as any).to(sessionId).emit('stream-end', { sessionId });
-        resolve({ chatResponse: fullChatResponse, structuredResponse });
-      });
+        stream.on('end', () => {
+          this.sendRemainingContent(sessionId);
+          const endTime = performance.now();
+          const processingTimeMs = Math.round(endTime - start);
+          const llm = 'deepseek-v3';
+          const total_token = 0;
+          structuredResponse = this.handleLLMResponseService.handleResponse(
+            llm,
+            fullChatResponse,
+            processingTimeMs,
+            total_token,
+          );
+          (this.gateWay.server as any)
+            .to(sessionId)
+            .emit('stream-end', { sessionId });
+          resolve({ chatResponse: fullChatResponse, structuredResponse });
+        });
 
-      stream.on('error', (err: Error) => {
-        this.handleStreamError(sessionId, err);
-        reject(err);
+        stream.on('error', (err: Error) => {
+          this.handleStreamError(sessionId, err);
+          reject(err);
+        });
       });
-    });
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message;
       console.error('DeepSeek API Error:', errorMessage);
-      this.handleStreamError(sessionId, new Error(`API Error: ${errorMessage}`));
+      this.handleStreamError(
+        sessionId,
+        new Error(`API Error: ${errorMessage}`),
+      );
     }
   }
 
   private handleValidationError(sessionId: string, message: string) {
     console.error('Validation Error:', message);
-    (this.gateWay.server as any).to(sessionId).emit('stream-error', { msg: message });
+    (this.gateWay.server as any)
+      .to(sessionId)
+      .emit('stream-error', { msg: message });
     throw new Error(`Validation Error: ${message}`);
   }
 
@@ -236,21 +253,29 @@ export class DeepseekService {
     });
   }
 
-  private processContent(content: string, sessionId: string, chunkSize: number) {
+  private processContent(
+    content: string,
+    sessionId: string,
+    chunkSize: number,
+  ) {
     // Split content into tokens while preserving whitespace
-    const tokens = content.split(/(\s+)/).filter(t => t !== '');
+    const tokens = content.split(/(\s+)/).filter((t) => t !== '');
     this.wordBuffer.push(...tokens);
 
     while (this.wordBuffer.length >= chunkSize) {
       const chunk = this.wordBuffer.splice(0, chunkSize).join('');
-      (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      (this.gateWay.server as any)
+        .to(sessionId)
+        .emit('stream-data', { data: chunk });
     }
-}
+  }
 
   private sendRemainingContent(sessionId: string) {
     if (this.wordBuffer.length > 0) {
       const chunk = this.wordBuffer.join('');
-      (this.gateWay.server as any).to(sessionId).emit('stream-data', { data: chunk });
+      (this.gateWay.server as any)
+        .to(sessionId)
+        .emit('stream-data', { data: chunk });
       this.wordBuffer = [];
     }
     this.buffer = '';
@@ -259,8 +284,8 @@ export class DeepseekService {
   private handleStreamError(sessionId: string, err: Error) {
     console.error('Stream error:', err);
     this.sendRemainingContent(sessionId);
-    (this.gateWay.server as any).to(sessionId).emit('stream-error', { 
-      msg: `Stream error: ${err.message}` 
+    (this.gateWay.server as any).to(sessionId).emit('stream-error', {
+      msg: `Stream error: ${err.message}`,
     });
   }
   // fetchDeepseekResponse
