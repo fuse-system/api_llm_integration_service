@@ -176,6 +176,7 @@ export class AppController {
         data.messages,
         data.sessionId,
       );
+      console.log(answer);
     } else {
       if (data.llmType == MODEL.OPENAI) {
         answer = await this.openAiService.getChatGptResponse(data.messages);
