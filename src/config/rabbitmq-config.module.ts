@@ -71,6 +71,7 @@ export class RabbitMqConfigModule {
      * */
     // listenToMicroservice('fuse1');
     listenToMicroservice('llm_microMotion_queue');
+    listenToMicroservice('audio_lens_queue');
     listenToMicroservice('CHECK_AUDIO_QUEUE');
     await app.startAllMicroservices();
   }
