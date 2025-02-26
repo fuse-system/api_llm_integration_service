@@ -97,7 +97,7 @@ export class DeepseekService {
   }
 
   async askDeepseekStream(
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    messages: Array<{ role: 'user' | 'system'| 'assistant'; content: string }>,
     sessionId: string,
   ): Promise<{ chatResponse: string; structuredResponse: LLMResponse[] } | string> {
     const apiUrl = process.env.DEEPSEEK_API_URL;
